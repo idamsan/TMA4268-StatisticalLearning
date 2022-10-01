@@ -1,0 +1,330 @@
+---
+title: "Compulsory assignment 1"
+author: "Lars August Melbye Olsen, Ida Sandum, Ellen Skrimstad"
+date: "February 2022"
+output:
+  pdf_document
+  #html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,tidy=TRUE,message=FALSE,warning=FALSE,strip.white=TRUE,prompt=FALSE,
+                      cache=TRUE, size="scriptsize",fig.align = "center")
+```
+
+```{r,eval=TRUE,echo=FALSE}
+library("knitr")
+library("rmarkdown")
+library("palmerpenguins")
+library("GGally")
+library("ggplot2")
+library("tidyverse")
+library("MASS")
+library("class")
+library("ggfortify")
+library(pROC)
+library(plotROC)
+library(boot)
+```
+
+## Problem 1
+# a) 
+In general Mean Squared error can be decomposed like this:
+\begin{align*}
+    MSE &= E \big[ (y-\tilde f(x))^2 \big] \\
+    &= E \big[ (f(x) + \epsilon - \tilde f(x))^2 \big] \\
+    &= E \big[ (f(x)-\tilde f(x))^2 \big] + E\big[ \epsilon^2 \big] + 2E \big[ \big( f(x)-\tilde f(x) \big) \cdot \epsilon \big] \\
+    &= \big( f(x) - \tilde f(x)  \big)^2 +  var \big[ \epsilon \big] + 0
+\end{align*}
+Here using that $E[\epsilon]=0$,
+
+while expected test MSE can be decomposed like this: 
+\begin{align*}
+MSE_{test} &= E \big[ \big( y_0-\tilde f(x_0) \big)^2 \big] \\
+&= E \big[ \big( f(x_0) + \epsilon - \tilde f(x_0) \big)^2 \big] \\
+&= E \big[ f(x_0)^2 +\epsilon^2 + \tilde f(x_0)^2 -2 f(x_0) \cdot \tilde f(x_0) + 2 f(x_0)\cdot \epsilon - 2 \tilde f(x_0) \cdot \epsilon  \big] \\
+&= f(x_0)^2 + var \big[ \epsilon \big] + \big( var \big[ \tilde f(x_0) \big] + E \big[ \tilde f(x_0) \big]^2 \big) - 2 E \big[ f(x_0) \cdot \tilde f(x_0) \big] + 0 + 0 \\
+&= var \big[ \epsilon \big] + var \big[ \tilde f(x_0) \big] + f(x_0)^2 + E \big[ \tilde f(x_0) \big]^2 - 2 E \big[ f(x_0) \cdot \tilde f(x_0) \big] \\
+&= var  \big[ \epsilon \big] + var  \big[ \tilde f(x_0) \big] + \big( f(x_0) - E \big[ \tilde f(x_0) \big] \big)^2 
+\end{align*}
+Where $var \big[ \epsilon \big]$ is the irreducible error, $var  \big[ \tilde f(x_0) \big]$ is variance, and $\big( f(x_0) - E \big[ \tilde f(x_0) \big] \big)^2$ is the squared bias.
+
+# b)
+
+We can understand $var \big[ \epsilon \big]$, which is the variance of the difference between $y$ and the optimal $f(x)$ as an unavoidable mistake we will always have to do, therefore irreducible error. The variance $var  \big[ \tilde f(x_0) \big]$ is a measure of how much a resulting prediction $\tilde f$ varies based on the data-set. The squared bias $\big( f(x_0) - E \big[ \tilde f(x_0) \big] \big)^2$ is a measure of how different our estimator $E \big[ \tilde f(x_0) \big]$ is to the optimal value $f(x_0)$.
+
+# c)
+TRUE, FALSE, TRUE, FALSE
+
+# d)
+TRUE, FALSE, TRUE, FALSE
+
+# e) 
+iii). 
+
+## Problem 2
+
+# a) 
+* One mistake was excluding the sex-variable because of a low p-value. A low p-value means the predictor is a meaningful addition to the model and will have an effect of the response.
+* Basil should have done a F-test to see if other predictors/estimates could also have low p-values, which they do. Sex, species and flipper-length all have the same value, $<2.2\cdot10^{-16}$, as can be seen in the variance table in b). Of course, he still included two of these covariates, but would have probably removed them (wrongly) if he used the same reasoning as for the sex covariate. 
+* We can see from the plot in b) that bill depth has a smaller correlation with body mass than bill length, and there is no apparent reason to include the former and not the latter, so Basil probably did not study his data well enough before fitting the model. 
+
+# b) 
+As an informative plot we have chosen to use ggpairs and coloring with respect to species. We can see that one mistake was concluding that Chinstrap is the biggest species, as we can see from the plot that it is in fact Gentoo. 
+```{r, include = TRUE}
+data(penguins)
+# Remove island, and year variable, as we won't use those.
+Penguins <- subset(penguins, select = -c(island, year))
+# Fit the model as specified in advance based on expert knowledge:
+penguin.model <- lm(body_mass_g ~ flipper_length_mm + sex +
+                    bill_depth_mm*species, data = Penguins)
+
+#Visualizing the data
+ggpairs(Penguins, aes(colour = species)) + labs(title="Plot of data")
+
+```
+
+Here we have used the anova function on the expert's model, which tells us that flipper length and bill depth also have a very low p-value. 
+```{r, echo = FALSE}
+anova(penguin.model)
+```
+
+ 
+
+# c)
+
+Our model with a summary: 
+```{r final model,echo = FALSE}
+
+final.model <- lm(body_mass_g ~ flipper_length_mm+sex+bill_length_mm+species*bill_depth_mm, data = Penguins)
+
+summary(final.model)
+```
+
+Using the anova function to compare our model to the expert's model, and a summary of the expert's model. 
+```{r , echo=FALSE}
+# Comparing the expert's model with our own
+anova(final.model,penguin.model)
+
+summary(penguin.model)
+
+```
+### Prediction of penguin body mass
+
+Our model is a  linear regression model with body mass as the response, and flipper length, bill length,
+bill depth, species, and sex as covariates, and an interaction effect between bill depth and species.
+
+We get the species-dependent models 
+
+$\hat{y}_{adelie} = \hat{\beta}_{0}+  \hat{\beta}_{fl} x_{fl}+\hat{\beta}_{s} x_{s} +\hat{\beta}_{bl}x_{bl}+\hat{\beta}_{bd}x_{bd}$
+
+$\hat{y}_{chinstrap} = \hat{\beta_0} + \hat{\beta}_{fl}x_{fl}+ \hat{\beta}_{s} x_{s}+\hat{\beta}_{bl}x_{bl}+(\hat{\beta}_{bd}+\hat{\beta}_{bd,chinstrap})x_{bd} + \hat{\beta}_{chinstrap}$
+
+$\hat{y}_{gentoo} = \hat{\beta_0} + \hat{\beta}_{fl}x_{fl}+ \hat{\beta}_{s} x_{s} +\hat{\beta}_{bl}x_{bl}+(\hat{\beta}_{bd}+\hat{\beta}_{bd,gentoo})x_{bd} + \hat{\beta}_{gentoo}$,
+
+where "s" stands for "sex", "fl" stands for "flipper length", "bl" stands for "bill length", and "bd" stands for "bill depth". 
+
+From the plot in b) we can see that body mass and bill length have a stronger correlation than body mass and bill depth, and bill length should therefore in theory be included if bill depth is included. Flipper length and body mass have a correlation of 0.871, and should be included. For Gentoo, the largest species, the bill is actually the smallest. Interaction between species and bill depth might therefore be a good idea, as the effect depends on the species. One could argue the same for bill length, but the trend is not as clear. Species seem to play an important part and males seem to be larger than females.
+
+Using the anova function to compare our model to the experts model, we get a p-value of 0.00588, so it seems like our model is significantly better. Using the summary function, we see that the median of residuals of our model is -3.2, which is closer to zero than for the other model and we have an adjusted R-squared value of 0.8757, which is good. 
+
+From the coefficients in our model, we see that flipper length, sex, bill length and bill depth all have significant p-values ($<0.05$), and are therefore meaningful. 
+
+```{r,echo=FALSE}
+
+autoplot(final.model, smooth.colour = NA)
+
+```
+The QQ-plot shows us that a linear model is a proper choice with this data. In the residual vs. fitted plot, we can see that the residuals are centered around zero, as they should be. We can see from the plot residuals vs. leverage that there are not too many points that have both high leverage and high residual value.
+
+This plot indicates that our model fits the data well. 
+
+## Problem 3
+# a)
+All four points are in this code. 
+```{r classification, include = TRUE}
+# Create a new boolean variable indicating whether or not the penguin is an
+# Adelie penguin
+Penguins$adelie <- ifelse(Penguins$species == "Adelie", 1, 0)
+# Select only relevant variables and remove all rows with missing values in body
+# mass, flipper length, sex or species.
+Penguins_reduced <- Penguins %>% dplyr::select(body_mass_g, flipper_length_mm, adelie) %>%
+mutate(body_mass_g = as.numeric(body_mass_g), flipper_length_mm = as.numeric(flipper_length_mm)) %>%
+drop_na()
+set.seed(4268)
+# 70% of the sample size for training set
+training_set_size <- floor(0.7 * nrow(Penguins_reduced))
+train_ind <- sample(seq_len(nrow(Penguins_reduced)), size = training_set_size)
+train <- Penguins_reduced[train_ind, ]
+test <- Penguins_reduced[-train_ind, ]
+
+# Logistic regression
+fit.glm = glm(adelie ~ body_mass_g + flipper_length_mm, family = "binomial", train)
+
+glm.probs = predict(fit.glm, newdata = test, type ="response")
+glm.preds = ifelse(glm.probs > 0.5 , 1, 0)
+glm.table = table(glm.preds, test$adelie)
+
+# QDA
+fit.qda = qda(adelie ~ body_mass_g + flipper_length_mm, family = "binomial", train)
+qda.preds = predict(fit.qda, newdata = test, type ="response")$class
+qda.probs = predict(fit.qda,newdata=test,type="response")$posterior
+qda.table = table(qda.preds, test$adelie)
+
+# KNN 
+fit.knn = knn(train =train, test = test, cl = train$adelie, k=25, prob=T)
+knn.probs = ifelse(fit.knn==0,1-attributes(fit.knn)$prob,attributes(fit.knn)$prob)
+knn.table = table(fit.knn,test$adelie)
+
+# Sensitivity and specificity
+glm.spes= glm.table[1,1]/(glm.table[1,1]+glm.table[2,1])
+glm.spes
+glm.sens= glm.table[2,2]/(glm.table[2,2]+glm.table[1,2])
+glm.sens
+qda.spes= qda.table[1,1]/(qda.table[1,1]+qda.table[2,1])
+qda.spes
+qda.sens= qda.table[2,2]/(qda.table[2,2]+qda.table[1,2])
+qda.sens
+knn.spes= knn.table[1,1]/(knn.table[1,1]+knn.table[2,1])
+knn.spes
+knn.sens= knn.table[2,2]/(knn.table[2,2]+glm.table[1,2])
+knn.sens
+```
+# b)
+## i)
+```{r ROC, echo=FALSE}
+
+# Receiver operating curve
+glmroc = roc(response = test$adelie, predictor = glm.probs, direction = "<")
+qdaroc = roc(response = test$adelie, predictor = qda.probs[,2], direction = "<")
+knnroc = roc(response = test$adelie, predictor = knn.probs, direction = "<")
+
+# Plotting ROC
+pROC::ggroc(list(glmroc,qdaroc,knnroc), aes = "linetype")+labs(x = "1 - Specificity", y = "Sensitivity", title="ROC curves") + scale_linetype_discrete(name= "Model",labels=c("Logistic regression","QDA","KNN"))
+
+```
+
+AUC for glm, qda and knn ,respectively.
+```{r AUC, echo = FALSE}
+glm.auc=auc(glmroc)
+qda.auc=auc(qdaroc)
+knn.auc=auc(knnroc)
+
+glm.auc
+qda.auc
+knn.auc
+```
+## ii) 
+The ROC curve for the KNN model is unsatisfactory compared to the curve for the other two models. We want the curve to go as near the upper left corner as possible, so this model performs worst. 
+The ROC curves for the logistic regression model and the quadratic discriminant analysis model are very similar. The areas under the curves are `r glm.auc` and `r qda.auc`, respectively. Ideally we would want both to be as near 1 as possible, which means that the logistic regression model performs slightly better than the QDA method. 
+
+## iii)
+We would choose KNN if the task is to create an interpretable model, because it is easy to understand the concept behind it. If you want to predict which class a point belongs to, you look at some number K of the nearest points, and choose the class for which most neighbouring points belong to.  
+
+# c) 
+iii). 
+
+# d) 
+```{r Vizualization of true vs predicted, ECHO = FALSE}
+
+# Making predictions on both the training set and test set
+glm.probs2 = predict(fit.glm, type ="response", newdata = Penguins_reduced)
+glm.preds2 = ifelse(glm.probs2>0.5,1,0)
+
+ggplot()+ 
+  # real data
+  geom_point(data = Penguins_reduced, aes(x=flipper_length_mm, y=body_mass_g, color= factor(adelie), shape=2)) +
+  # predicted data 
+  geom_point(data = Penguins_reduced, aes(x=flipper_length_mm, y=body_mass_g, color = factor(glm.preds2))) + 
+  # plot specifications
+  labs(color = c("Species"))+scale_shape_identity(guide="legend", labels= c("Real values"), name="Classification")+scale_colour_manual(values = c("green", "red"), guide="legend", labels=c("Not Adelie", "Adelie")) + labs(x="Flipper length [mm]", y="Body mass [g]", title="Predicted vs true values")
+
+
+```
+
+The true values are plotted as triangles and the predicted values as circles. The color red represents the species Adelie. Incorrect predictions are either green dots with red triangles around or red dots with green triangles around. We can see that the predictions are not always correct, which is to be expected from previous calculations. 
+
+
+## Problem 4
+
+# a) 
+TRUE, FALSE, FALSE, FALSE 
+
+# b) 
+
+```{r, include = TRUE}
+id <- "1chRpybM5cJn4Eow3-_xwDKPKyddL9M2N" # google file ID
+d.chd <- read.csv(sprintf("https://docs.google.com/uc?id=%s&export=download",id))
+
+
+#logistic regression
+glm.fit = glm(chd ~ sbp + sex + smoking, data = d.chd, family = "binomial")
+
+# x_1, x_2, x_3
+sbp = 150
+sex = 1
+smoke = 0
+
+# eta = beta_0 + beta_1*x_1 + beta_2*x_2 + beta_3*x_3
+eta = summary(glm.fit)$coef[,1]%*%c(1,sbp,sex,smoke)
+probability_chd_glm = (exp(eta)/(1+exp(eta)))
+
+```
+The probability of coronary heart disease (chd) for a non-smoking male with sbp=150 is `r probability_chd_glm`. 
+
+# c)
+
+```{r, include=TRUE}
+#parameters
+B = 1000
+n = 500 #how many observations in the data set.
+
+#Here I will make a regression out of some data and find the probability from the regression
+prob = function(data_set){
+  glm.fit = glm(chd ~ sbp + sex + smoking, data = data_set, family = "binomial") #regression of given data set
+  eta = summary(glm.fit)$coef[,1]%*%c(1,150,1,0)
+  answer = (exp(eta)/(1+exp(eta))) # calculating the probability
+  return(answer)
+}
+
+#vector for all the probabilities
+vec_of_prob = c(1:B)
+
+#Using B = 1000 bootstrap samples
+set.seed(1)  #to compare the result with others
+for (i in 1:B){
+  
+ #finding "new" data set from the original data set.
+  new = d.chd[sample(n,n,replace=TRUE),]
+  
+  #adding the probability of this new data set to the vector
+  vec_of_prob[i] = prob(new)
+}
+
+```
+
+Standard deviation and 96% quantile interval
+```{r, echo=FALSE}
+#standard error of the probabilities
+sd(vec_of_prob)
+
+#finding the 95% quantile interval for the bootstrap samples
+quantile(vec_of_prob,probs = c(0.025,0.975))
+```
+
+```{r, include = FALSE}
+#expected probability 
+exp_prob=mean(vec_of_prob)
+
+```
+The expected probability is `r exp_prob` and the 
+plausible values are between approximately 4% and 21%. 
+
+We see that a non-smoking man with a sbp of 150 has the probability of about 10% of getting coronary heart disease.
+You can with bigger certainty see that the probability lies between 4% and 21%, which is a pretty big interval.
+
+
+
+# d)
+
+FALSE, FALSE, TRUE, TRUE
